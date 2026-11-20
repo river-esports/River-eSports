@@ -1,0 +1,208 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <title>Article | RIVER ESPORTS</title>
+  <link rel="stylesheet" href="assets/style.css">
+
+  <style>
+    .article-page {
+      max-width: 900px;
+      margin: 65px auto;
+      padding: 20px;
+    }
+    .article-back {
+      display: inline-block;
+      color: #00d9ff;
+      margin-bottom: 25px;
+      text-decoration: none;
+    }
+    .article-title {
+      font-size: clamp(30px, 6vw, 48px);
+      margin: 15px 0;
+    }
+    .article-date {
+      color: #9aa8bd;
+      margin-bottom: 25px;
+    }
+    .article-cover {
+      width: 100%;
+      max-height: 480px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+    .article-body {
+      color: #d5dbea;
+      font-size: 17px;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .article-share {
+      margin: 30px 0;
+      padding: 12px 22px;
+      background: #00c8ef;
+      color: #06101c;
+      border: 0;
+      border-radius: 5px;
+      font-weight: 700;
+    }
+    .related-news {
+      margin-top: 55px;
+    }
+    .related-card {
+      padding: 16px;
+      margin: 12px 0;
+      background: #101a2b;
+      border-radius: 8px;
+    }
+    .related-card a {
+      color: #fff;
+      text-decoration: none;
+    }
+    .article-error {
+      padding: 50px 10px;
+      text-align: center;
+      color: #fff;
+    }
+  </style>
+</head>
+
+<body>
+
+<header class="site-header">
+  <a class="brand" href="index.html">
+    <img class="brand-logo"
+      src="assets/river-esports-logo.png"
+      alt="River eSports">
+  </a>
+</header>
+
+<main class="article-page">
+
+  <a class="article-back" href="gaming-news.html">
+    ← BACK TO NEWS
+  </a>
+
+  <div id="articleContent">
+    <div class="article-error">Loading article...</div>
+  </div>
+
+  <div class="related-news">
+    <h2>RELATED <em>NEWS</em></h2>
+    <div id="relatedNews"></div>
+  </div>
+
+</main>
+
+<footer>
+  <span>© RIVER ESPORTS. ALL RIGHTS RESERVED.</span>
+</footer>
+
+<script type="module">
+import { supabase, isConfigured } from "./assets/supabase.js";
+
+const content = document.getElementById("articleContent");
+const related = document.getElementById("relatedNews");
+
+const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;"
+}[c]));
+
+const params = new URLSearchParams(location.search);
+const articleId = params.get("id");
+
+async function loadArticle() {
+  if (!isConfigured || !articleId) {
+    content.innerHTML =
+      '<div class="article-error">Article not found.</div>';
+    return;
+  }
+
+  const { data: article, error } = await supabase
+    .from("gaming_news")
+    .select("*")
+    .eq("id", articleId)
+    .single();
+
+  if (error || !article) {
+    content.innerHTML =
+      '<div class="article-error">Unable to load this article.</div>';
+    return;
+  }
+
+  document.title = article.title + " | RIVER ESPORTS";
+
+  const date = article.published_at
+    ? new Date(article.published_at).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      })
+    : "RIVER UPDATE";
+
+  content.innerHTML = `
+    <div class="eyebrow">RIVER ESPORTS NEWS</div>
+    <h1 class="article-title">${esc(article.title)}</h1>
+    <div class="article-date">${esc(date)}</div>
+
+    ${article.image_url ? `
+      <img class="article-cover"
+        src="${esc(article.image_url)}"
+        alt="${esc(article.title)}">
+    ` : ""}
+
+    <div class="article-body">${esc(article.body || "No article content available.")}</div>
+
+    <button class="article-share" id="shareArticle">
+      SHARE ARTICLE ↗
+    </button>
+  `;
+
+  document.getElementById("shareArticle").addEventListener("click", async () => {
+    const shareData = {
+      title: article.title,
+      url: location.href
+    };
+
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(location.href);
+      alert("Article link copied!");
+    }
+  });
+
+  loadRelated();
+}
+
+async function loadRelated() {
+  const { data } = await supabase
+    .from("gaming_news")
+    .select("id,title")
+    .neq("id", articleId)
+    .order("published_at", { ascending: false })
+    .limit(3);
+
+  related.innerHTML = (data || []).map(item => `
+    <div class="related-card">
+      <a href="article.html?id=${encodeURIComponent(item.id)}">
+        ${esc(item.title)} ↗
+      </a>
+    </div>
+  `).join("");
+}
+
+loadArticle();
+</script>
+
+</body>
+</html>
